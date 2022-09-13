@@ -147,7 +147,7 @@ static bool compute_publicBECDH(ecdh_context_t *key_ex_data)
 {
 	BN_CTX *ctx = NULL;
 
-	const EC_GROUP *group = NULL;
+	EC_GROUP *group = NULL;
 	BIGNUM *x = NULL, *y = NULL;
 	unsigned char *temp = NULL;
 	int size = 0;
@@ -172,12 +172,10 @@ static bool compute_publicBECDH(ecdh_context_t *key_ex_data)
 		LOG(LOG_ERROR, "BN context get failed\n");
 		goto exit;
 	}
-	
+
 	group = EC_GROUP_new_by_curve_name(key_ex_data->group_name_nid);
-	if (group == NULL)
-	{
+	if (group == NULL) {
 		LOG(LOG_ERROR, "Failed to get the EC group\n");
-		ret = -1;
 		goto exit;
 	}
 
@@ -191,12 +189,11 @@ static bool compute_publicBECDH(ecdh_context_t *key_ex_data)
 	/* Store the private key */
 	if (!EVP_PKEY_get_bn_param(key_ex_data->_key, OSSL_PKEY_PARAM_PRIV_KEY, &(key_ex_data->_secretb))) {
 		LOG(LOG_ERROR, "EC private key get failed\n");
-		ret = -1;
 		goto exit;
 	}
 
 	/* Get the public key co-ordinates in x and y*/
-	if (!EVP_PKEY_get_bn_param(key_ex_data->_key, OSSL_PKEY_PARAM_EC_PUB_X, &x) || 
+	if (!EVP_PKEY_get_bn_param(key_ex_data->_key, OSSL_PKEY_PARAM_EC_PUB_X, &x) ||
 	!EVP_PKEY_get_bn_param(key_ex_data->_key, OSSL_PKEY_PARAM_EC_PUB_Y, &y)) {
 		LOG(LOG_ERROR, "EC cordinate get failed\n");
 		goto exit;
@@ -292,6 +289,9 @@ static bool compute_publicBECDH(ecdh_context_t *key_ex_data)
 #endif
 	ret = true;
 exit:
+	if (group) {
+		EC_GROUP_free(group);
+	}
 	if (temp) {
 		fdo_free(temp);
 	}
@@ -300,6 +300,9 @@ exit:
 	}
 	if (y) {
 		BN_clear(y);
+	}
+	if (!ret && key_ex_data->_secretb) {
+		BN_clear_free(key_ex_data->_secretb);
 	}
 	/* Consider using the bn cache in ctx. */
 	if (ctx) {
@@ -370,7 +373,7 @@ int32_t crypto_hal_set_peer_random(void *context,
 	int size = 0;
 	BIGNUM *Ax_bn = NULL, *Ay_bn = NULL, *owner_random_bn = NULL;
 	BIGNUM *Shx_bn = NULL, *Shy_bn = NULL;
-	const EC_GROUP *group = NULL;
+	EC_GROUP *group = NULL;
 	EC_POINT *point = NULL;
 	EC_POINT *Sh_se_point = NULL;
 	int ret = -1;
@@ -539,6 +542,9 @@ int32_t crypto_hal_set_peer_random(void *context,
 
 	ret = 0;
 error:
+	if (group) {
+		EC_GROUP_free(group);
+	}
 	if (point) {
 		EC_POINT_free(point);
 	}

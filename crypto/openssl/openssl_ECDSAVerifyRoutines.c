@@ -185,7 +185,7 @@ end:
 		evp_ctx = NULL;
 	}
 	if (mdctx) {
-		EVP_MD_CTX_destroy(mdctx);
+		EVP_MD_CTX_free(mdctx);
 		mdctx = NULL;
 	}
 	if (x) {

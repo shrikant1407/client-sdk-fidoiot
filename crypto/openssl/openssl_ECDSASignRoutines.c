@@ -61,35 +61,40 @@ int32_t crypto_hal_ecdsa_sign(const uint8_t *data, size_t data_len,
 		goto end;
     	}
 #if defined(ECDSA256_DA)
-	if(1 != EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, evpKey)){
+	if (1 != EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, evpKey)) {
 		LOG(LOG_ERROR, "EVP sign init failed \n");
 		goto end;
-    	}
+	}
 #elif defined(ECDSA384_DA)
-	if(1 != EVP_DigestSignInit(mdctx, NULL, EVP_sha384(), NULL, evpKey)){
+	if (1 != EVP_DigestSignInit(mdctx, NULL, EVP_sha384(), NULL, evpKey)) {
 		LOG(LOG_ERROR, "EVP sign init failed \n");
 		goto end;
-    	}
+	}
 #endif
-     if(1 != EVP_DigestSignUpdate(mdctx, data, data_len)){
-	 	LOG(LOG_ERROR, "EVP sign update failed \n");
+	if (1 != EVP_DigestSignUpdate(mdctx, data, data_len)) {
+		LOG(LOG_ERROR, "EVP sign update failed \n");
 		goto end;
-     	}
+	}
 	 //First call with NULL param to obtain the DER encoded signature length
-   if(1 != EVP_DigestSignFinal(mdctx, NULL, &der_sig_len)) {
-	 	LOG(LOG_ERROR, "EVP sign final for size failed \n");
+	if (1 != EVP_DigestSignFinal(mdctx, NULL, &der_sig_len)) {
+		LOG(LOG_ERROR, "EVP sign final for size failed \n");
 		goto end;
-     	}
-   der_sig = fdo_alloc(der_sig_len);
-   if (!der_sig) {
+	}
+	if (der_sig_len <= 0) {
+        LOG(LOG_ERROR, "EVP_DigestSignFinal returned invalid signature length.\n");
+        goto end;
+    }
+
+	der_sig = fdo_alloc(der_sig_len);
+	if (!der_sig) {
 		LOG(LOG_ERROR, "Signature alloc Failed\n");
 		goto end;
 	}
    //second call with actual param to obtain the DEr encoded signature
-   if(1 != EVP_DigestSignFinal(mdctx, der_sig, &der_sig_len)) {
-	 	LOG(LOG_ERROR, "EVP sign final failed \n");
+	if (1 != EVP_DigestSignFinal(mdctx, der_sig, &der_sig_len)) {
+		LOG(LOG_ERROR, "EVP sign final failed \n");
 		goto end;
-     	}
+	}
 
    // Decode DER encoded signature to convert to raw format
 	sig = ECDSA_SIG_new();
@@ -152,24 +157,26 @@ int32_t crypto_hal_ecdsa_sign(const uint8_t *data, size_t data_len,
 	ret = 0;
 
 end:
-	if (mdctx) {
-		EVP_MD_CTX_destroy(mdctx);
-		mdctx = NULL;
-		}
-	if (evpKey) {
-		EVP_PKEY_free(evpKey);
-		evpKey = NULL;
-	}
 	if (sig) {
 		ECDSA_SIG_free(sig);
 	}
-	//TODO: check on why cleaning before cause seg fault issue after addition of d2i function.
-	//if (der_sig) fdo_free(der_sig);
 	if (sig_r) {
 		fdo_free(sig_r);
 	}
 	if (sig_s) {
 		fdo_free(sig_s);
+	}
+//TO-DO: Check if we can free der_sig
+	// if (der_sig) {
+	// 	fdo_free(der_sig);
+	// }
+	if (mdctx) {
+		EVP_MD_CTX_free(mdctx);
+		mdctx = NULL;
+		}
+	if (evpKey) {
+		EVP_PKEY_free(evpKey);
+		evpKey = NULL;
 	}
 	return ret;
 }
